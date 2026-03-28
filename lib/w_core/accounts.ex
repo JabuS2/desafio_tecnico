@@ -76,10 +76,16 @@ defmodule WCore.Accounts do
   """
   def register_user(attrs) do
     %User{}
-    |> User.email_changeset(attrs)
+    |> User.registration_changeset(attrs)
     |> Repo.insert()
   end
 
+  @doc """
+  Retorna um changeset para registro de usuário com email e senha.
+  """
+  def change_user_registration(%User{} = user, attrs \\ %{}) do
+    User.registration_changeset(user, attrs)
+  end
   ## Settings
 
   @doc """

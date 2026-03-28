@@ -104,6 +104,13 @@ defmodule WCore.Accounts.User do
     end
   end
 
+  def registration_changeset(user, attrs, opts \\ []) do
+  user
+  |> cast(attrs, [:email, :password])
+  |> validate_email(opts)
+  |> validate_password(opts)
+end
+
   @doc """
   Confirms the account by setting `confirmed_at`.
   """

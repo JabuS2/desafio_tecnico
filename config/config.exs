@@ -8,6 +8,19 @@
 import Config
 
 config :w_core, :scopes,
+  accounts_user: [
+    default: false,
+    module: WCore.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :id,
+    schema_table: :users,
+    test_data_fixture: WCore.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
+config :w_core, :scopes,
   user: [
     default: true,
     module: WCore.Accounts.Scope,

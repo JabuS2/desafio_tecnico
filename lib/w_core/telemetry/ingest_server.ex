@@ -5,11 +5,17 @@ defmodule WCore.Telemetry.IngestServer do
 
   @moduledoc """
   GenServer responsável por receber os pulsos dos sensores
-  e atualizar o cache ETS de forma síncrona e segura.
+  e atualizar o cache ETS de forma assíncrona e segura.
 
-  É o ponto de entrada único para eventos de telemetria,
-  garantindo que não haja condição de corrida na contagem
-  de eventos por nó.
+  Estrutura esperada do payload:
+    %{
+      temperatura: float(),   # °C
+      pressao: float(),       # bar
+      vibracao: float(),      # mm/s
+      rpm: integer(),         # rotações por minuto
+      voltagem: float(),      # V
+      corrente: float()       # A
+    }
   """
 
   # --- API Pública ---
@@ -35,14 +41,29 @@ defmodule WCore.Telemetry.IngestServer do
 
   @impl true
   def handle_cast({:ingest, node_id, status, payload}, state) do
-    Cache.upsert(node_id, status, payload)
+    payload_normalizado = normalizar_payload(payload)
+
+    Cache.upsert(node_id, status, payload_normalizado)
 
     Phoenix.PubSub.broadcast(
       WCore.PubSub,
-      "telemetry:#{node_id}",
+      "telemetry:updates",
       {:node_update, node_id, status}
     )
 
     {:noreply, state}
+  end
+
+  # --- Funções Privadas ---
+
+  defp normalizar_payload(payload) do
+    %{
+      temperatura: Map.get(payload, :temperatura, 0.0),
+      pressao:     Map.get(payload, :pressao, 0.0),
+      vibracao:    Map.get(payload, :vibracao, 0.0),
+      rpm:         Map.get(payload, :rpm, 0),
+      voltagem:    Map.get(payload, :voltagem, 0.0),
+      corrente:    Map.get(payload, :corrente, 0.0)
+    }
   end
 end

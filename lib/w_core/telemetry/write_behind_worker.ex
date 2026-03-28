@@ -4,7 +4,8 @@ defmodule WCore.Telemetry.WriteBehindWorker do
   alias WCore.Telemetry.Cache
   alias WCore.Telemetry.NodeMetrics
   alias WCore.Repo
-
+  alias WCore.Telemetry.Node
+  
   @moduledoc """
   Worker assíncrono responsável por persistir o estado do cache ETS
   no SQLite a cada intervalo de tempo (Write-Behind Pattern).
@@ -49,19 +50,31 @@ defmodule WCore.Telemetry.WriteBehindWorker do
     records = Cache.all()
 
     Enum.each(records, fn {node_id, status, event_count, last_payload, timestamp} ->
-      last_seen_at =
-        timestamp
-        |> DateTime.truncate(:second)
+      last_seen_at = DateTime.truncate(timestamp, :second)
+
+      # Garante que o nó existe antes de inserir métricas
+      node = case Repo.get(WCore.Telemetry.Node, node_id) do
+        nil ->
+          {:ok, node} = %WCore.Telemetry.Node{}
+          |> WCore.Telemetry.Node.changeset(%{
+            machine_identifier: "sensor-#{node_id}",
+            location: "desconhecido"
+          })
+          |> Repo.insert()
+          node
+
+        existing -> existing
+      end
 
       attrs = %{
-        node_id: node_id,
+        node_id: node.id,
         status: status,
         total_events_processed: event_count,
         last_payload: last_payload,
         last_seen_at: last_seen_at
       }
 
-      case Repo.get_by(NodeMetrics, node_id: node_id) do
+      case Repo.get_by(NodeMetrics, node_id: node.id) do
         nil ->
           %NodeMetrics{}
           |> NodeMetrics.changeset(attrs)
@@ -74,4 +87,5 @@ defmodule WCore.Telemetry.WriteBehindWorker do
       end
     end)
   end
+
 end

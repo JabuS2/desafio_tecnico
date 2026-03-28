@@ -11,13 +11,12 @@ defmodule WCoreWeb.UserLive.Registration do
       <div class="mx-auto max-w-sm">
         <div class="text-center">
           <.header>
-            Register for an account
+            Criar conta
             <:subtitle>
-              Already registered?
+              Já tem conta?
               <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
-                Log in
+                Entrar
               </.link>
-              to your account now.
             </:subtitle>
           </.header>
         </div>
@@ -26,15 +25,28 @@ defmodule WCoreWeb.UserLive.Registration do
           <.input
             field={@form[:email]}
             type="email"
-            label="Email"
+            label="E-mail"
             autocomplete="username"
             spellcheck="false"
             required
             phx-mounted={JS.focus()}
           />
-
-          <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
-            Create an account
+          <.input
+            field={@form[:password]}
+            type="password"
+            label="Senha"
+            autocomplete="new-password"
+            required
+          />
+          <.input
+            field={@form[:password_confirmation]}
+            type="password"
+            label="Confirmar senha"
+            autocomplete="new-password"
+            required
+          />
+          <.button phx-disable-with="Criando conta..." class="btn btn-primary w-full mt-4">
+            Criar conta
           </.button>
         </.form>
       </div>
@@ -49,8 +61,7 @@ defmodule WCoreWeb.UserLive.Registration do
   end
 
   def mount(_params, _session, socket) do
-    changeset = Accounts.change_user_email(%User{}, %{}, validate_unique: false)
-
+    changeset = Accounts.change_user_registration(%User{})
     {:ok, assign_form(socket, changeset), temporary_assigns: [form: nil]}
   end
 
@@ -58,18 +69,14 @@ defmodule WCoreWeb.UserLive.Registration do
   def handle_event("save", %{"user" => user_params}, socket) do
     case Accounts.register_user(user_params) do
       {:ok, user} ->
-        {:ok, _} =
-          Accounts.deliver_login_instructions(
-            user,
-            &url(~p"/users/log-in/#{&1}")
-          )
+        Accounts.deliver_login_instructions(
+          user,
+          &url(~p"/users/log-in/#{&1}")
+        )
 
         {:noreply,
          socket
-         |> put_flash(
-           :info,
-           "An email was sent to #{user.email}, please access it to confirm your account."
-         )
+         |> put_flash(:info, "Conta criada com sucesso!")
          |> push_navigate(to: ~p"/users/log-in")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -78,12 +85,15 @@ defmodule WCoreWeb.UserLive.Registration do
   end
 
   def handle_event("validate", %{"user" => user_params}, socket) do
-    changeset = Accounts.change_user_email(%User{}, user_params, validate_unique: false)
-    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
+    changeset =
+      %User{}
+      |> Accounts.change_user_registration(user_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_form(socket, changeset)}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
-    form = to_form(changeset, as: "user")
-    assign(socket, form: form)
+    assign(socket, form: to_form(changeset, as: "user"))
   end
 end

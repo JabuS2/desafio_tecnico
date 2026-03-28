@@ -3,15 +3,15 @@
 ## O que foi implementado
 
 - Projeto Phoenix 1.8.5 criado com SQLite (`ecto_sqlite3`), LiveView e sem mailer externo
-- Autenticação gerada via `mix phx.gen.auth Accounts User users` (fluxo LiveView)
+- Autenticação gerada via `mix phx.gen.auth Accounts User users --hashing-lib pbkdf2` e customizada para fluxo de email + senha (sem magic link)
 - Mailer local configurado com `Swoosh.Adapters.Local` e cliente HTTP desabilitado (`api_client: false`) — sem dependência de SMTP, adequado para ambiente edge
 - Contexto `WCore.Telemetry` criado com seus schemas e migrations isolados do contexto `Accounts`
 
 ## Arquitetura atual
 ```
 lib/w_core/
-├── accounts/            # Gerado pelo phx.gen.auth
-│   ├── user.ex          # Schema do operador
+├── accounts/            # Gerado e customizado a partir do phx.gen.auth
+│   ├── user.ex          # Schema do operador (com registration_changeset)
 │   ├── user_token.ex    # Tokens de sessão
 │   ├── user_notifier.ex # Notificações (local, sem SMTP)
 │   └── scope.ex         # Escopo de autenticação
@@ -21,6 +21,10 @@ lib/w_core/
 │   └── node_metrics.ex  # Schema de métricas consolidadas
 ├── telemetry.ex         # API pública do contexto Telemetry (vazia por ora)
 └── repo.ex              # Repositório Ecto (SQLite)
+
+lib/w_core_web/live/user_live/
+├── registration.ex      # Customizado: campos de email + senha + confirmação
+└── login.ex             # Customizado: apenas formulário de senha (magic link removido)
 
 priv/repo/migrations/
 ├── ..._create_users_auth_tables.exs
@@ -90,7 +94,7 @@ mesmo tempo causam `database is locked`.
 | WAL mode + pool maior | Funciona em produção, mas exige configuração extra do Exqlite |
 | `pool_size: 1` | Serializa todas as escritas → zero contenção, custo: throughput de escrita sequencial |
 
-Escolhi `pool_size: 1` em desenvolvimento porque elimina o problema sem configuração
+Escolhemos `pool_size: 1` em desenvolvimento porque elimina o problema sem configuração
 adicional. Em produção, o Write-Behind do Passo 2 resolve o throughput: quem escreve no
 banco é apenas um Worker assíncrono, não os sensores diretamente.
 
@@ -133,6 +137,31 @@ Poderíamos ter uma tabela `nodes` com todos os campos de métricas junto. O pro
 
 A separação permite que o Worker do Write-Behind faça `INSERT OR REPLACE` apenas
 em `node_metrics`, sem tocar em `nodes`. Isso reduz a área de contenção do SQLite.
+
+---
+
+### `phx.gen.auth` com senha — por que não magic link?
+
+O `phx.gen.auth` na versão atual gera por padrão um fluxo de **magic link** (login por email sem senha). Esse fluxo é inadequado para o ambiente da Planta 42 por dois motivos:
+
+1. **Sem SMTP**: o sistema roda em edge computing sem acesso a servidor de email externo
+2. **Operação crítica**: operadores precisam de acesso imediato ao painel — depender de um link enviado por email introduz latência inaceitável em missão crítica
+
+**Alternativas consideradas:**
+
+| Opção | Problema |
+|---|---|
+| Magic link (padrão do gerador) | Exige SMTP externo — inviável em edge sem internet |
+| Magic link com adaptador local | Operador precisaria acessar `/dev/mailbox` para copiar o link — fluxo não intuitivo |
+| Senha com `--hashing-lib pbkdf2` + customização | Gerador ainda criou magic link por padrão — necessário customizar os LiveViews de registro e login |
+
+A solução adotada foi recriar o auth com `--hashing-lib pbkdf2` e customizar manualmente:
+- `registration.ex` — adicionados campos de senha e confirmação de senha
+- `login.ex` — removido formulário de magic link, mantido apenas o formulário de senha
+- `Accounts.register_user/1` — atualizado para usar `registration_changeset` que valida email + senha juntos
+- `User.registration_changeset/3` — criado para combinar `validate_email` e `validate_password` em um único changeset
+
+O algoritmo **Pbkdf2** foi escolhido sobre Bcrypt e Argon2 porque já estava presente como dependência transitiva do projeto e oferece boa resistência a ataques de força bruta com custo computacional adequado para hardware edge.
 
 ---
 

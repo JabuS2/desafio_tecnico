@@ -7,19 +7,16 @@ defmodule WCore.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      WCoreWeb.Telemetry,
-      WCore.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:w_core, :ecto_repos), skip: skip_migrations?()},
-      {DNSCluster, query: Application.get_env(:w_core, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: WCore.PubSub},
-      # Start a worker by calling: WCore.Worker.start_link(arg)
-      # {WCore.Worker, arg},
-      # Start to serve requests, typically the last entry
-      WCore.Telemetry.Supervisor,
-      WCoreWeb.Endpoint
-    ]
+  children = [
+    WCoreWeb.Telemetry,
+    WCore.Repo,
+    {Ecto.Migrator,
+    repos: Application.fetch_env!(:w_core, :ecto_repos), skip: skip_migrations?()},
+    {DNSCluster, query: Application.get_env(:w_core, :dns_cluster_query) || :ignore},
+    {Phoenix.PubSub, name: WCore.PubSub},
+    WCore.Telemetry.Supervisor,
+    WCoreWeb.Endpoint
+  ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
