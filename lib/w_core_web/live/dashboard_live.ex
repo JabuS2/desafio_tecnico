@@ -2,7 +2,6 @@ defmodule WCoreWeb.DashboardLive do
   use WCoreWeb, :live_view
 
   alias WCore.Telemetry.Cache
-  alias WCore.Telemetry.IngestServer
 
   @moduledoc """
   Sala de Controle da Planta 42.

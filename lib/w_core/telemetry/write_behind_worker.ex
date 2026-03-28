@@ -4,8 +4,7 @@ defmodule WCore.Telemetry.WriteBehindWorker do
   alias WCore.Telemetry.Cache
   alias WCore.Telemetry.NodeMetrics
   alias WCore.Repo
-  alias WCore.Telemetry.Node
-  
+
   @moduledoc """
   Worker assíncrono responsável por persistir o estado do cache ETS
   no SQLite a cada intervalo de tempo (Write-Behind Pattern).
