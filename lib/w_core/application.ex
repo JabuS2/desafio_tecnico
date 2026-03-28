@@ -17,6 +17,7 @@ defmodule WCore.Application do
       # Start a worker by calling: WCore.Worker.start_link(arg)
       # {WCore.Worker, arg},
       # Start to serve requests, typically the last entry
+      WCore.Telemetry.Supervisor,
       WCoreWeb.Endpoint
     ]
 
