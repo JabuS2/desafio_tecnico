@@ -68,16 +68,11 @@ defmodule WCoreWeb.UserLive.Registration do
   @impl true
   def handle_event("save", %{"user" => user_params}, socket) do
     case Accounts.register_user(user_params) do
-      {:ok, user} ->
-        Accounts.deliver_login_instructions(
-          user,
-          &url(~p"/users/log-in/#{&1}")
-        )
-
+      {:ok, _user} ->
         {:noreply,
-         socket
-         |> put_flash(:info, "Conta criada com sucesso!")
-         |> push_navigate(to: ~p"/users/log-in")}
+        socket
+        |> put_flash(:info, "Conta criada com sucesso! Faça login para continuar.")
+        |> push_navigate(to: ~p"/users/log-in")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
