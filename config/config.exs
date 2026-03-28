@@ -7,6 +7,19 @@
 # General application configuration
 import Config
 
+config :w_core, :scopes,
+  user: [
+    default: true,
+    module: WCore.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :id,
+    schema_table: :users,
+    test_data_fixture: WCore.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
 config :w_core,
   ecto_repos: [WCore.Repo],
   generators: [timestamp_type: :utc_datetime]
@@ -22,6 +35,8 @@ config :w_core, WCoreWeb.Endpoint,
   pubsub_server: WCore.PubSub,
   live_view: [signing_salt: "COebnVWS"]
 
+config :swoosh, :api_client, false
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
@@ -31,6 +46,8 @@ config :esbuild,
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
+
+config :w_core, WCore.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure tailwind (the version is required)
 config :tailwind,
