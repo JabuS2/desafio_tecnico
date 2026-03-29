@@ -66,6 +66,29 @@ Escolhemos `:public` porque tanto o `IngestServer` quanto o `WriteBehindWorker` 
 
 O LiveView do Passo 3 vai ler o ETS com alta frequência para montar o dashboard. `read_concurrency: true` otimiza o acesso de leitura paralela usando mecanismos internos do BEAM, sem custo adicional de escrita no nosso caso de uso.
 
+### Por que `ets:update_counter` em vez de lookup + insert?
+
+A versão inicial do `Cache.upsert/3` fazia duas operações separadas:
+```elixir
+# NÃO atômico — janela de race condition entre lookup e insert
+case :ets.lookup(@table, node_id) do
+  [{^node_id, _status, count, _payload, _ts}] ->
+    :ets.insert(@table, {node_id, status, count + 1, payload, timestamp})
+end
+```
+
+Sob concorrência extrema (10.000 eventos simultâneos), dois processos poderiam fazer o `lookup` ao mesmo tempo, ler o mesmo `count` e ambos incrementarem para `count + 1` — perdendo um evento.
+
+A versão correta usa `ets:update_counter/3`:
+```elixir
+# Atômico — operação única e indivisível no ETS
+:ets.update_counter(@table, node_id, {3, 1})
+```
+
+O `{3, 1}` significa: posição 3 da tupla (`event_count`), incremento de 1. O ETS garante que essa operação é atômica — impossível haver race condition na contagem, independente do número de processos concorrentes.
+
+Isso foi validado pelo teste de integração com 10.000 eventos concorrentes — 0 perdas.
+
 ## Defesa da estratégia de supervisão
 
 ### Por que `one_for_one`?
