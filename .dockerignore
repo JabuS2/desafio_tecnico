@@ -1,0 +1,7 @@
+_build/
+deps/
+.git/
+priv/static/assets/
+priv/static/cache_manifest.json
+w_core_dev.db
+.env
