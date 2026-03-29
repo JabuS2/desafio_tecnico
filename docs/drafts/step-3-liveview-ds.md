@@ -124,3 +124,19 @@ Cada card de sensor exibe:
 | Último pulso | `timestamp` (ETS) | Data/hora do último evento recebido |
 
 O campo temperatura recebe destaque visual (fundo vermelho) quando o status do nó é `"critical"`, reforçando a causa mais comum de falha crítica em maquinário industrial.
+
+## Nota sobre DaisyUI
+
+O projeto inclui DaisyUI como dependência, porém seu uso é restrito ao **sistema de temas** (variáveis CSS de cores, bordas e tamanhos). Nenhum componente pronto do DaisyUI (`btn`, `card`, `modal`, `alert` etc.) foi utilizado.
+
+Todos os componentes visuais da Sala de Controle foram construídos do zero com classes utilitárias do Tailwind:
+
+| Componente | Implementação |
+|---|---|
+| `stat_card` | HEEx puro com Tailwind |
+| `node_card` | HEEx puro com Tailwind |
+| `status_badge` | HEEx puro com Tailwind |
+| `metrica` | HEEx puro com Tailwind |
+| Banner de alerta crítico | HEEx puro com Tailwind + `animate-pulse` |
+
+O DaisyUI atua apenas como provedor de variáveis CSS (`--color-primary`, `--color-base-100` etc.), funcionando como um design token system — sem interferir na arquitetura de componentes.

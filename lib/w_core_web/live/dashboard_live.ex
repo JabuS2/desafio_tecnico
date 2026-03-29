@@ -88,10 +88,9 @@ defmodule WCoreWeb.DashboardLive do
   end
 
   attr :node, :any, required: true
-
   defp node_card(assigns) do
     ~H"""
-    <div class={"bg-gray-900 border rounded-xl p-5 transition-all #{border_color(@node)}"}>
+    <div class={"bg-gray-900 border rounded-xl p-5 transition-all duration-300 #{border_color(@node)} #{alert_animation(@node)}"}>
       <%!-- Cabeçalho do card --%>
       <div class="flex items-center justify-between mb-4">
         <div>
@@ -100,6 +99,14 @@ defmodule WCoreWeb.DashboardLive do
         </div>
         <.status_badge status={elem(@node, 1)} />
       </div>
+
+      <%!-- Alerta crítico --%>
+      <%= if elem(@node, 1) == "critical" do %>
+        <div class="flex items-center gap-2 bg-red-950 border border-red-800 rounded-lg px-3 py-2 mb-4 animate-pulse">
+          <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+          <span class="text-red-300 text-xs font-semibold">ALERTA CRÍTICO — Intervenção necessária</span>
+        </div>
+      <% end %>
 
       <%!-- Métricas principais --%>
       <div class="grid grid-cols-2 gap-3 mb-4">
@@ -148,6 +155,13 @@ defmodule WCoreWeb.DashboardLive do
       </div>
     </div>
     """
+  end
+
+  defp alert_animation(node) do
+    case elem(node, 1) do
+      "critical" -> "ring-2 ring-red-500 ring-offset-2 ring-offset-gray-950"
+      _ -> ""
+    end
   end
 
   attr :label, :string, required: true

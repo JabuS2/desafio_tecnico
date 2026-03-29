@@ -103,3 +103,6 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+/* Safelist — classes usadas dinamicamente em condicionais Elixir */
+@source inline("animate-pulse animate-ping ring-2 ring-red-500 ring-offset-2 ring-offset-gray-950");

@@ -1,5 +1,6 @@
 defmodule WCore.Telemetry.IngestIntegrationTest do
   use ExUnit.Case, async: false
+  use WCore.DataCase, async: false
 
   alias WCore.Telemetry.Cache
   alias WCore.Telemetry.IngestServer
@@ -18,6 +19,7 @@ defmodule WCore.Telemetry.IngestIntegrationTest do
     end
 
     Cache.init()
+    Ecto.Adapters.SQL.Sandbox.mode(WCore.Repo, {:shared, self()})
 
     :ok
   end
@@ -167,5 +169,52 @@ defmodule WCore.Telemetry.IngestIntegrationTest do
         "Performance insatisfatória: #{tempo_ms}ms para #{total} eventos"
     end
 
+    test "prova que o SQLite sincronizou o estado corretamente após flush" do
+      node_id = 50
+      total = 100
+
+      # Cria o nó no SQLite antes de injetar eventos
+      {:ok, node} =
+        %WCore.Telemetry.Node{}
+        |> WCore.Telemetry.Node.changeset(%{
+          machine_identifier: "sensor-#{node_id}",
+          location: "setor-teste"
+        })
+        |> WCore.Repo.insert()
+
+      # Injeta 100 eventos usando o ID real do banco
+      tasks =
+        for _ <- 1..total do
+          Task.async(fn ->
+            IngestServer.ingest(node.id, "ok", %{
+              temperatura: :rand.uniform(100) * 1.0,
+              pressao: :rand.uniform(10) * 1.0,
+              vibracao: :rand.uniform(5) * 1.0,
+              rpm: :rand.uniform(3000),
+              voltagem: 210.0 + :rand.uniform(20) * 1.0,
+              corrente: :rand.uniform(20) * 1.0
+            })
+          end)
+        end
+
+      Enum.each(tasks, &Task.await(&1, 10_000))
+      Process.sleep(500)
+
+      # Confirma que o ETS tem a contagem correta
+      assert {:ok, {_node_id, "ok", ^total, _, _}} = Cache.get(node.id)
+
+      # Aguarda o WriteBehindWorker fazer o flush (intervalo de 5s + margem)
+      Process.sleep(6_000)
+
+      # Verifica que o SQLite sincronizou corretamente
+      node_metrics = WCore.Repo.get_by(WCore.Telemetry.NodeMetrics, node_id: node.id)
+
+      assert node_metrics != nil, "NodeMetrics não foi criado no SQLite"
+      assert node_metrics.total_events_processed == total,
+        "SQLite dessincronizado: esperado #{total}, obtido #{node_metrics.total_events_processed}"
+      assert node_metrics.status == "ok"
+      assert node_metrics.last_seen_at != nil
+    end
+    
   end
 end
