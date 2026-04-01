@@ -4,6 +4,7 @@ defmodule WCore.Telemetry.Supervisor do
   alias WCore.Telemetry.Cache
   alias WCore.Telemetry.IngestServer
   alias WCore.Telemetry.WriteBehindWorker
+  alias WCore.Telemetry.SimulatorWorker
 
   @moduledoc """
   Supervisor responsável por orquestrar os processos do
@@ -24,14 +25,15 @@ defmodule WCore.Telemetry.Supervisor do
 
   @impl true
   def init(_opts) do
-    # Inicializa a tabela ETS antes de subir os filhos
     Cache.init()
 
     children = [
       IngestServer,
-      WriteBehindWorker
+      WriteBehindWorker,
+      SimulatorWorker
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
+
 end

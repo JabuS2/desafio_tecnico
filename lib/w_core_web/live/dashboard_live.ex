@@ -13,20 +13,20 @@ defmodule WCoreWeb.DashboardLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      # Subscreve no tópico geral de telemetria
       Phoenix.PubSub.subscribe(WCore.PubSub, "telemetry:updates")
     end
 
     nodes = load_nodes()
+    gemeos = WCore.Telemetry.SimulatorWorker.estado_atual()
 
-    {:ok, assign(socket, nodes: nodes, total: length(nodes))}
+    {:ok, assign(socket, nodes: nodes, total: length(nodes), gemeos: gemeos)}
   end
 
   @impl true
   def handle_info({:node_update, _node_id, _status}, socket) do
-    # Recarrega apenas quando recebe notificação de mudança
     nodes = load_nodes()
-    {:noreply, assign(socket, nodes: nodes, total: length(nodes))}
+    gemeos = WCore.Telemetry.SimulatorWorker.estado_atual()
+    {:noreply, assign(socket, nodes: nodes, total: length(nodes), gemeos: gemeos)}
   end
 
   @impl true
@@ -56,7 +56,7 @@ defmodule WCoreWeb.DashboardLive do
 
         <%!-- Grid de sensores --%>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <.node_card :for={node <- @nodes} node={node} />
+          <.node_card :for={node <- @nodes} node={node} gemeos={@gemeos} />
         </div>
 
         <%!-- Estado vazio --%>
@@ -94,8 +94,12 @@ defmodule WCoreWeb.DashboardLive do
       <%!-- Cabeçalho do card --%>
       <div class="flex items-center justify-between mb-4">
         <div>
-          <p class="font-mono font-bold text-white">Sensor <%= elem(@node, 0) %></p>
-          <p class="text-xs text-gray-500 mt-0.5">ID: <%= elem(@node, 0) %></p>
+          <p class="font-mono font-bold text-white">
+            <%= nome_maquina(@gemeos, elem(@node, 0)) %>
+          </p>
+          <p class="text-xs text-gray-500 mt-0.5">
+            <%= localizacao_maquina(@gemeos, elem(@node, 0)) %> · ID: <%= elem(@node, 0) %>
+          </p>
         </div>
         <.status_badge status={elem(@node, 1)} />
       </div>
@@ -107,6 +111,13 @@ defmodule WCoreWeb.DashboardLive do
           <span class="text-red-300 text-xs font-semibold">ALERTA CRÍTICO — Intervenção necessária</span>
         </div>
       <% end %>
+
+      <%!-- Estado do Gêmeo Digital --%>
+      <div class="mb-3">
+        <span class={"text-xs px-2 py-1 rounded-full #{estado_badge(@gemeos, elem(@node, 0))}"}>
+          <%= estado_label(@gemeos, elem(@node, 0)) %>
+        </span>
+      </div>
 
       <%!-- Métricas principais --%>
       <div class="grid grid-cols-2 gap-3 mb-4">
@@ -199,6 +210,48 @@ defmodule WCoreWeb.DashboardLive do
   end
 
   # --- Funções auxiliares ---
+
+  defp nome_maquina(gemeos, node_id) do
+    case Map.get(gemeos, node_id) do
+      nil -> "Sensor #{node_id}"
+      twin -> twin.nome
+    end
+  end
+
+  defp localizacao_maquina(gemeos, node_id) do
+    case Map.get(gemeos, node_id) do
+      nil -> "—"
+      twin -> twin.localizacao
+    end
+  end
+
+  defp estado_label(gemeos, node_id) do
+    case Map.get(gemeos, node_id) do
+      nil -> "Desconhecido"
+      twin ->
+        case twin.estado do
+          :normal -> "Operação Normal"
+          :aquecendo -> "Aquecendo"
+          :critico -> "Estado Crítico"
+          :falhando -> "Falha Detectada"
+          :recuperando -> "Recuperando"
+        end
+    end
+  end
+
+  defp estado_badge(gemeos, node_id) do
+    case Map.get(gemeos, node_id) do
+      nil -> "bg-gray-800 text-gray-400"
+      twin ->
+        case twin.estado do
+          :normal -> "bg-green-900 text-green-300"
+          :aquecendo -> "bg-yellow-900 text-yellow-300"
+          :critico -> "bg-red-900 text-red-300"
+          :falhando -> "bg-red-950 text-red-200"
+          :recuperando -> "bg-blue-900 text-blue-300"
+        end
+    end
+  end
 
   defp load_nodes do
     Cache.all()

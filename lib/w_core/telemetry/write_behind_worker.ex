@@ -51,16 +51,25 @@ defmodule WCore.Telemetry.WriteBehindWorker do
     Enum.each(records, fn {node_id, status, event_count, last_payload, timestamp} ->
       last_seen_at = DateTime.truncate(timestamp, :second)
 
-      # Garante que o nó existe antes de inserir métricas
+      # Busca o nó pelo ID primeiro
       node = case Repo.get(WCore.Telemetry.Node, node_id) do
         nil ->
-          {:ok, node} = %WCore.Telemetry.Node{}
-          |> WCore.Telemetry.Node.changeset(%{
-            machine_identifier: "sensor-#{node_id}",
-            location: "desconhecido"
-          })
-          |> Repo.insert()
-          node
+          # Tenta inserir, se já existe busca pelo machine_identifier
+          identifier = "sensor-#{node_id}"
+
+          case Repo.get_by(WCore.Telemetry.Node, machine_identifier: identifier) do
+            nil ->
+              {:ok, node} =
+                %WCore.Telemetry.Node{}
+                |> WCore.Telemetry.Node.changeset(%{
+                  machine_identifier: identifier,
+                  location: "desconhecido"
+                })
+                |> Repo.insert()
+              node
+
+            existing -> existing
+          end
 
         existing -> existing
       end
